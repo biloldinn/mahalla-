@@ -158,10 +158,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for mahalla in storage.mahallalar.keys():
             keyboard.append([InlineKeyboardButton(mahalla, callback_data=f"mahalla_{mahalla}")])
         
+        # Veb-ilova tugmasini qo'shish
+        keyboard.append([InlineKeyboardButton("🌐 Veb-ilova orqali yuborish", url="https://xavfsizhudud.vercel.app")])
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             "👋 Mahalla shikoyat botiga xush kelibsiz!\n"
-            "Iltimos, o'zingizning mahallangizni tanlang:",
+            "Iltimos, mahallangizni tanlang yoki veb-ilovadan foydalaning:",
             reply_markup=reply_markup
         )
         return MAHALLA_SELECT
