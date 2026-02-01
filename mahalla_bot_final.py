@@ -474,9 +474,9 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         stats_text = "📊 BOT STATISTIKASI\n\n"
         stats_text += f"📨 Jami murojatlar: {jami}\n"
-        stats_text += f"👁️ Ko'rilgan: {korilgan}\n"
-        stats_text += f"✅ Bajarildi: {bajarildi}\n"
-        stats_text += f"🆕 Yangi: {yangi}\n\n"
+        stats_text += f"🆕 Yangi murojaatlar: {yangi}\n"
+        stats_text += f"👁️ Ko'rilayotgan murojaatlar: {korilgan}\n"
+        stats_text += f"✅ Bajarilgan ishlar: {bajarildi}\n\n"
         stats_text += f"🏘️ Mahallalar: {len(storage.mahallalar)}\n"
         stats_text += f"👥 Hodimlar: {len(storage.staff_members)}\n"
         stats_text += f"👤 Foydalanuvchilar: {len(storage.users)}\n\n"
