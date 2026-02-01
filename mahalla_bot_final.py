@@ -64,7 +64,7 @@ class DataStorage:
         self.staff_members = {}
         
         # MongoDB sozlamalari
-        self.mongo_uri = os.environ.get("MONGO_URI")
+        self.mongo_uri = os.environ.get("MONGO_URI", "mongodb+srv://msen78041_db_user:JsTixohKsShps2ue@mahahlla.an5naee.mongodb.net/?appName=mahahlla")
         self.db = None
         self.connected_to_mongo = False
         
