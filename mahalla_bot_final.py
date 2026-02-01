@@ -466,16 +466,30 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return DELETE_MAHALLA
     
     elif query.data == 'stats':
-        stats_text = "📊 BOT STATISTIKASI\n\n"
-        stats_text += f"🏘️ Mahallalar soni: {len(storage.mahallalar)}\n"
-        stats_text += f"👥 Hodimlar soni: {len(storage.staff_members)}\n"
-        stats_text += f"📨 Shikoyatlar soni: {len(storage.complaints)}\n"
-        stats_text += f"👤 Ro'yxatdan o'tganlar: {len(storage.users)}\n\n"
+        # Shikoyatlar statistikasi
+        jami = len(storage.complaints)
+        korilgan = len([c for c in storage.complaints if c['status'] == 'ko\'rilgan'])
+        bajarildi = len([c for c in storage.complaints if c['status'] == 'bajarildi'])
+        yangi = len([c for c in storage.complaints if c['status'] == 'yangi'])
         
-        # Mahalla bo'yicha statistika
-        for mahalla, data in storage.mahallalar.items():
-            hodimlar_soni = len(data.get('hodimlar', []))
-            stats_text += f"{mahalla}: {hodimlar_soni} hodim\n"
+        stats_text = "📊 BOT STATISTIKASI\n\n"
+        stats_text += f"📨 Jami murojatlar: {jami}\n"
+        stats_text += f"👁️ Ko'rilgan: {korilgan}\n"
+        stats_text += f"✅ Bajarildi: {bajarildi}\n"
+        stats_text += f"🆕 Yangi: {yangi}\n\n"
+        stats_text += f"🏘️ Mahallalar: {len(storage.mahallalar)}\n"
+        stats_text += f"👥 Hodimlar: {len(storage.staff_members)}\n"
+        stats_text += f"👤 Foydalanuvchilar: {len(storage.users)}\n\n"
+        
+        # Hodimlar ro'yxati
+        if storage.staff_members:
+            stats_text += "👥 HODIMLAR:\n"
+            for username, info in storage.staff_members.items():
+                stats_text += f"\n• {info['ism']}\n"
+                stats_text += f"  Lavozim: {info['lavozim']}\n"
+                stats_text += f"  Mahalla: {info['mahalla']}\n"
+                stats_text += f"  Telefon: {info['telefon']}\n"
+                stats_text += f"  Username: @{username}\n"
         
         await query.edit_message_text(stats_text)
         return ADMIN_MAIN
@@ -541,14 +555,10 @@ async def select_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(
         f"✅ Lavozim tanlandi: {lavozim}\n\n"
-        "Endi hodimning ma'lumotlarini quyidagi formatda kiriting:\n\n"
-        "Ism Familiya Telefon @username @guruh_username\n\n"
-        "Misol 1: Anvar Xolmirzayev +998901234567 @anvar_xolmirzayev @mahalla_guruh\n"
-        "Misol 2: Anvar Xolmirzayev +998901234567 @anvar_xolmirzayev\n\n"
-        "⚠️ Diqqat:\n"
-        "- Username @ belgisi bilan boshlanishi kerak!\n"
-        "- Guruh username ixtiyoriy (yozsangiz ham bo'ladi, yozmasangiz ham)\n"
-        "- Agar guruh username yozsangiz, botni guruhga admin qiling!"
+        "Hodim ma'lumotlarini kiriting:\n\n"
+        "Format: Ism Familiya Telefon @username\n"
+        "Misol: Anvar Xolmirzayev +998901234567 @anvar_xolmirzayev\n\n"
+        "⚠️ Username @ belgisi bilan boshlanishi kerak!"
     )
     return ADD_STAFF
 
@@ -558,17 +568,9 @@ async def add_staff_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(parts) < 3:
             raise ValueError("Kamida 3 ta qism bo'lishi kerak!")
         
-        # Guruh username borligini tekshirish
-        group_username = None
-        if len(parts) >= 4 and parts[-1].startswith('@'):
-            group_username = parts[-1][1:]  # @ belgisini olib tashlash
-            username = parts[-2]
-            telefon = parts[-3]
-            ism_familiya = ' '.join(parts[:-3])
-        else:
-            username = parts[-1]
-            telefon = parts[-2]
-            ism_familiya = ' '.join(parts[:-2])
+        username = parts[-1]
+        telefon = parts[-2]
+        ism_familiya = ' '.join(parts[:-2])
         
         if not username.startswith('@'):
             raise ValueError("Username @ belgisi bilan boshlanishi kerak!")
@@ -583,7 +585,7 @@ async def add_staff_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'telefon': telefon,
             'lavozim': lavozim,
             'mahalla': mahalla_nomi,
-            'user_id': None  # Hodim /start bosganida to'ldiriladi
+            'user_id': None
         }
         
         # Mahallaga hodimni qo'shish
@@ -591,33 +593,22 @@ async def add_staff_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
             storage.mahallalar[mahalla_nomi]['hodimlar'] = {}
         
         storage.mahallalar[mahalla_nomi]['hodimlar'][lavozim] = username
-        
-        # Guruh username ni saqlash
-        if group_username:
-            storage.mahallalar[mahalla_nomi]['group_username'] = group_username
-        
         storage.save_data()
         
-        response_text = f"✅ Hodim muvaffaqiyatli qo'shildi!\n"
-        response_text += f"Ism: {ism_familiya}\n"
-        response_text += f"Lavozim: {lavozim}\n"
-        response_text += f"Mahalla: {mahalla_nomi}\n"
-        response_text += f"Username: @{username}\n"
-        
-        if group_username:
-            response_text += f"Guruh: @{group_username}\n\n"
-            response_text += f"⚠️ DIQQAT: Botni @{group_username} guruhiga admin qiling!\n"
-        
-        response_text += f"\n⚠️ Hodim botga /start buyrug'ini yuborishi kerak!"
-        
-        await update.message.reply_text(response_text)
+        await update.message.reply_text(
+            f"✅ Hodim qo'shildi!\n"
+            f"Ism: {ism_familiya}\n"
+            f"Lavozim: {lavozim}\n"
+            f"Mahalla: {mahalla_nomi}\n"
+            f"Username: @{username}\n\n"
+            f"⚠️ Hodim botga /start buyrug'ini yuborishi kerak!"
+        )
         
         # Qolgan hodimlarni tekshirish
         hodimlar = storage.mahallalar[mahalla_nomi]['hodimlar']
         qoshilgan_soni = len(hodimlar)
         
         if qoshilgan_soni < 7:
-            # Davom etish
             qolgan_lavozimlar = [pos for pos in STAFF_POSITIONS if pos not in hodimlar.keys()]
             
             keyboard = []
@@ -626,29 +617,24 @@ async def add_staff_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text(
-                f"📊 {mahalla_nomi} mahallasi:\n"
-                f"✅ Qo'shilgan: {qoshilgan_soni}/7\n"
-                f"📋 Qolgan: {7 - qoshilgan_soni}/7\n\n"
+                f"📊 {mahalla_nomi}: {qoshilgan_soni}/7 hodim\n\n"
                 "Keyingi hodim lavozimini tanlang:",
                 reply_markup=reply_markup
             )
             return SELECT_POSITION
         else:
-            # 7 ta hodim to'ldi
             await update.message.reply_text(
-                f"🎉 {mahalla_nomi} mahallasiga barcha 7 ta hodim qo'shildi!\n\n"
+                f"🎉 {mahalla_nomi} mahallasiga 7 ta hodim qo'shildi!\n"
                 "Admin panelga qaytilmoqda..."
             )
             return await admin_main_menu(update, context)
         
     except ValueError as e:
-        error_msg = str(e) if str(e) != "" else "Noto'g'ri format"
+        error_msg = str(e) if str(e) else "Noto'g'ri format"
         await update.message.reply_text(
             f"❌ {error_msg}\n\n"
-            "Iltimos, quyidagi formatda kiriting:\n\n"
-            "Ism Familiya Telefon @username\n\n"
-            "Misol: Anvar Xolmirzayev +998901234567 @anvar_xolmirzayev\n\n"
-            "⚠️ Username @ belgisi bilan boshlanishi kerak!"
+            "Format: Ism Familiya Telefon @username\n"
+            "Misol: Anvar Xolmirzayev +998901234567 @anvar_xolmirzayev"
         )
         return ADD_STAFF
 
@@ -792,9 +778,24 @@ async def staff_new_complaints(update: Update, context: ContextTypes.DEFAULT_TYP
     message_text += f"📝 Shikoyat: {complaint['text']}\n\n"
     message_text += f"⏰ Vaqt: {complaint['timestamp'][:19]}"
     
+    # Shikoyat ko'rilgan deb belgilash va foydalanuvchiga xabar
+    if complaint['status'] == 'yangi':
+        complaint['status'] = 'ko\'rilgan'
+        storage.save_data()
+        
+        # Foydalanuvchiga avtomatik xabar
+        try:
+            await context.bot.send_message(
+                chat_id=complaint['user_id'],
+                text=f"👁️ #{complaint['id']} raqamli shikoyatingiz hodim tomonidan ko'rildi.\n"
+                     f"Hodim masalani ko'rib chiqmoqda."
+            )
+        except:
+            pass
+    
     keyboard = [
         [
-            InlineKeyboardButton("✅ O'qildi", callback_data=f"read_{complaint['id']}"),
+            InlineKeyboardButton("✅ Bajarildi", callback_data=f"complete_{complaint['id']}"),
             InlineKeyboardButton("🗑️ O'chirish", callback_data=f"delete_{complaint['id']}")
         ]
     ]
@@ -822,23 +823,23 @@ async def staff_new_complaints(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data['current_complaint_id'] = complaint['id']
     return ConversationHandler.END
 
-async def mark_complaint_read(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def mark_complaint_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    complaint_id = int(query.data.replace("read_", ""))
+    complaint_id = int(query.data.replace("complete_", ""))
     
-    # Shikoyatni yangilash
+    # Shikoyatni bajarildi deb belgilash
     for complaint in storage.complaints:
         if complaint['id'] == complaint_id:
-            complaint['status'] = 'o\'qildi'
+            complaint['status'] = 'bajarildi'
             
             # Foydalanuvchiga xabar
             try:
                 await context.bot.send_message(
                     chat_id=complaint['user_id'],
-                    text=f"✅ #{complaint_id} raqamli shikoyatingiz o'qildi.\n"
-                         f"Hodim masalani ko'rib chiqmoqda."
+                    text=f"✅ #{complaint_id} raqamli shikoyatingiz bajarildi!\n"
+                         f"Murojatingiz uchun rahmat!"
                 )
             except:
                 pass
@@ -846,7 +847,7 @@ async def mark_complaint_read(update: Update, context: ContextTypes.DEFAULT_TYPE
             break
     
     storage.save_data()
-    await query.edit_message_text("✅ Shikoyat o'qildi deb belgilandi.")
+    await query.edit_message_text("✅ Shikoyat bajarildi deb belgilandi.")
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -915,13 +916,13 @@ def main():
     
     # Hodim uchun handler
     staff_handler = CallbackQueryHandler(staff_new_complaints, pattern='^new_complaints$')
-    read_handler = CallbackQueryHandler(mark_complaint_read, pattern='^read_')
+    complete_handler = CallbackQueryHandler(mark_complaint_complete, pattern='^complete_')
     
     # Handlerlarni qo'shish
     application.add_handler(user_conv_handler)
     application.add_handler(admin_conv_handler)
     application.add_handler(staff_handler)
-    application.add_handler(read_handler)
+    application.add_handler(complete_handler)
     
     # Start handler
     application.add_handler(CommandHandler('start', start))
