@@ -1,2 +1,4 @@
 python-telegram-bot==21.0
 flask
+pymongo
+dnspython

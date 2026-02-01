@@ -5,6 +5,11 @@ import json
 import os
 import threading
 from flask import Flask
+try:
+    import pymongo
+    from pymongo import MongoClient
+except ImportError:
+    pymongo = None
 
 from telegram import (
     Update, 
@@ -50,50 +55,98 @@ STAFF_POSITIONS = [
     "Ijtimoiy xodim"
 ]
 
-# Ma'lumotlarni saqlash
+# Ma'lumotlarni saqlash (MongoDB va Lokal JSON)
 class DataStorage:
     def __init__(self):
-        self.mahallalar = {}  # mahalla_nomi: {hodimlar: {lavozim: username}, group_id: None}
-        self.users = {}  # user_id: {ism: "", tel: "", mahalla: ""}
-        self.complaints = []  # shikoyatlar ro'yxati
-        self.staff_members = {}  # username: {ism: "", mahalla: "", lavozim: "", tel: "", user_id: None}
+        self.mahallalar = {}
+        self.users = {}
+        self.complaints = []
+        self.staff_members = {}
+        
+        # MongoDB sozlamalari
+        self.mongo_uri = os.environ.get("MONGO_URI")
+        self.db = None
+        self.connected_to_mongo = False
+        
+        if self.mongo_uri and pymongo:
+            try:
+                self.client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
+                # Ulanishni tekshirish
+                self.client.server_info()
+                self.db = self.client['mahalla_bot_db']
+                self.connected_to_mongo = True
+                logger.info("✅ MongoDB-ga muvaffaqiyatli ulanildi!")
+            except Exception as e:
+                logger.error(f"❌ MongoDB-ga ulanishda xato: {e}. Lokal fayldan foydalaniladi.")
     
     def save_data(self):
+        data = {
+            'mahallalar': self.mahallalar,
+            'users': self.users,
+            'complaints': self.complaints,
+            'staff_members': self.staff_members
+        }
+        
+        # 1. MongoDB-ga saqlash
+        if self.connected_to_mongo:
+            try:
+                for key, value in data.items():
+                    self.db['bot_data'].update_one(
+                        {'_id': key},
+                        {'$set': {'data': value}},
+                        upsert=True
+                    )
+                # logger.debug("Ma'lumotlar MongoDB-ga saqlandi.")
+            except Exception as e:
+                logger.error(f"MongoDB-ga saqlashda xato: {e}")
+        
+        # 2. Lokal JSON-ga saqlash (zaxira uchun)
         try:
-            data = {
-                'mahallalar': self.mahallalar,
-                'users': self.users,
-                'complaints': self.complaints,
-                'staff_members': self.staff_members
-            }
-            # Atomik saqlash: avval vaqtinchalik faylga yozish
             temp_file = 'data.json.tmp'
             with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            
-            # Keyin asosiy faylga almashtirish (bu crash paytida fayl buzilishini oldini oladi)
             if os.path.exists(temp_file):
-                if os.name == 'nt': # Windows uchun
-                    if os.path.exists('data.json'):
-                        os.remove('data.json')
+                if os.name == 'nt' and os.path.exists('data.json'):
+                    os.remove('data.json')
                 os.rename(temp_file, 'data.json')
         except Exception as e:
-            logger.error(f"Ma'lumotlarni saqlashda xato: {e}")
-    
+            logger.error(f"Lokal saqlashda xato: {e}")
+
     def load_data(self):
-        if not os.path.exists('data.json'):
-            return
-        try:
-            with open('data.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                self.mahallalar = data.get('mahallalar', {})
-                self.users = data.get('users', {})
-                self.complaints = data.get('complaints', [])
-                self.staff_members = data.get('staff_members', {})
-        except Exception as e:
-            logger.error(f"Ma'lumotlarni yuklashda xato: {e}")
-            # Agar fayl buzilgan bo'lsa, bo'sh ma'lumot bilan davom etish
-            pass
+        # 1. MongoDB-dan yuklash
+        if self.connected_to_mongo:
+            try:
+                mongo_data = {}
+                for item in self.db['bot_data'].find():
+                    mongo_data[item['_id']] = item['data']
+                
+                if mongo_data:
+                    self.mahallalar = mongo_data.get('mahallalar', {})
+                    self.users = mongo_data.get('users', {})
+                    self.complaints = mongo_data.get('complaints', [])
+                    self.staff_members = mongo_data.get('staff_members', {})
+                    logger.info("✅ Ma'lumotlar MongoDB-dan yuklandi.")
+                    return
+            except Exception as e:
+                logger.error(f"MongoDB-dan yuklashda xato: {e}")
+
+        # 2. Lokal JSON-dan yuklash
+        if os.path.exists('data.json'):
+            try:
+                with open('data.json', 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.mahallalar = data.get('mahallalar', {})
+                    self.users = data.get('users', {})
+                    self.complaints = data.get('complaints', [])
+                    self.staff_members = data.get('staff_members', {})
+                logger.info("📂 Ma'lumotlar lokal fayldan yuklandi.")
+                
+                # Agar MongoDB-ga endigina ulanilgan bo'lsa, lokal ma'lumotlarni migratsiya qilish
+                if self.connected_to_mongo:
+                    logger.info("Migratsiya boshlandi...")
+                    self.save_data()
+            except Exception as e:
+                logger.error(f"Lokal yuklashda xato: {e}")
 
 storage = DataStorage()
 storage.load_data()
