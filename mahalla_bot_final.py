@@ -69,6 +69,8 @@ class DataStorage:
             json.dump(data, f, ensure_ascii=False, indent=2)
     
     def load_data(self):
+        if not os.path.exists('data.json'):
+            return
         try:
             with open('data.json', 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -76,7 +78,9 @@ class DataStorage:
                 self.users = data.get('users', {})
                 self.complaints = data.get('complaints', [])
                 self.staff_members = data.get('staff_members', {})
-        except FileNotFoundError:
+        except Exception as e:
+            logger.error(f"Ma'lumotlarni yuklashda xato: {e}")
+            # Agar fayl buzilgan bo'lsa, bo'sh ma'lumot bilan davom etish
             pass
 
 storage = DataStorage()
@@ -92,6 +96,18 @@ def health_check():
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
+
+# Xatoliklarni ushlab qolish
+async def error_handler(update: Optional[object], context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error(f"Xatolik yuz berdi: {context.error}")
+    # Agar xatolik update bilan bog'liq bo'lsa, foydalanuvchiga xabar berish
+    if isinstance(update, Update) and update.effective_message:
+        try:
+            await update.effective_message.reply_text(
+                "❌ Kutilmagan xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring."
+            )
+        except:
+            pass
 
 # Asosiy funksiyalar
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -946,6 +962,9 @@ def main():
     application.add_handler(staff_stats_handler)
     application.add_handler(complete_handler)
     application.add_handler(delete_complaint_handler)
+    
+    # Xatolik handlerini qo'shish
+    application.add_error_handler(error_handler)
     
     # Veb-serverni alohida thread'da ishga tushirish (Render uchun)
     threading.Thread(target=run_flask, daemon=True).start()

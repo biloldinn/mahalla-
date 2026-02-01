@@ -1,0 +1,37 @@
+{
+  "mahallalar": {
+    "ozbekiston": {
+      "hodimlar": [
+        "+992555551111"
+      ],
+      "group_id": null
+    },
+    "cuhgbefgr": {
+      "hodimlar": [],
+      "group_id": null
+    },
+    "asjjsahchajcb": {
+      "hodimlar": {
+        "Mahalla raisi (oqsoqol)": "Dasturchi_bt"
+      },
+      "group_id": null
+    }
+  },
+  "users": {},
+  "complaints": [],
+  "staff_members": {
+    "+992555551111": {
+      "ism": "biloliddin",
+      "telefon": "turgunboyev",
+      "lavozim": "Mahalla raisi (oqsoqol)",
+      "mahalla": "ozbekiston"
+    },
+    "Dasturchi_bt": {
+      "ism": "turgunboyev biloliddin",
+      "telefon": "+998905418414",
+      "lavozim": "Mahalla raisi (oqsoqol)",
+      "mahalla": "asjjsahchajcb",
+      "user_id": null
+    }
+  }
+}
