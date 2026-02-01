@@ -755,12 +755,17 @@ async def remove_staff_member(update: Update, context: ContextTypes.DEFAULT_TYPE
         lavozim = staff_info['lavozim']
         
         # Mahalladan o'chirish
-        if 'hodimlar' in storage.mahallalar[mahalla_nomi]:
-            if lavozim in storage.mahallalar[mahalla_nomi]['hodimlar']:
+        hodimlar = storage.mahallalar[mahalla_nomi].get('hodimlar', {})
+        if isinstance(hodimlar, dict):
+            if lavozim in hodimlar:
                 del storage.mahallalar[mahalla_nomi]['hodimlar'][lavozim]
+        elif isinstance(hodimlar, list):
+            if username in hodimlar:
+                storage.mahallalar[mahalla_nomi]['hodimlar'].remove(username)
         
         # Umumiy ro'yxatdan o'chirish
-        del storage.staff_members[username]
+        if username in storage.staff_members:
+            del storage.staff_members[username]
         storage.save_data()
         
         await query.edit_message_text(f"✅ Hodim muvaffaqiyatli o'chirildi!")
@@ -778,9 +783,14 @@ async def delete_mahalla_confirm(update: Update, context: ContextTypes.DEFAULT_T
     if mahalla_nomi in storage.mahallalar:
         # Mahallaga tegishli hodimlarni o'chirish
         hodimlar = storage.mahallalar[mahalla_nomi].get('hodimlar', {})
-        for lavozim, username in hodimlar.items():
-            if username in storage.staff_members:
-                del storage.staff_members[username]
+        if isinstance(hodimlar, dict):
+            for lavozim, username_key in hodimlar.items():
+                if username_key in storage.staff_members:
+                    del storage.staff_members[username_key]
+        elif isinstance(hodimlar, list):
+            for username_key in hodimlar:
+                if username_key in storage.staff_members:
+                    del storage.staff_members[username_key]
         
         # Mahallani o'chirish
         del storage.mahallalar[mahalla_nomi]
