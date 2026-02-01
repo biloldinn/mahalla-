@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import json
 import os
+import threading
+from flask import Flask
 
 from telegram import (
     Update, 
@@ -79,6 +81,17 @@ class DataStorage:
 
 storage = DataStorage()
 storage.load_data()
+
+# Render uchun kichik veb-server (uxlab qolmasligi uchun)
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Bot is running!", 200
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 # Asosiy funksiyalar
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -903,6 +916,9 @@ def main():
     application.add_handler(main_conv_handler)
     application.add_handler(staff_handler)
     application.add_handler(complete_handler)
+    
+    # Veb-serverni alohida thread'da ishga tushirish (Render uchun)
+    threading.Thread(target=run_flask, daemon=True).start()
     
     # Botni ishga tushirish
     print("Bot ishga tushdi...")

@@ -1,1 +1,1 @@
-worker: python mahalla_bot_final.py
+web: python mahalla_bot_final.py
