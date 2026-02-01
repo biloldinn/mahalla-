@@ -125,7 +125,13 @@ class DataStorage:
                     self.users = mongo_data.get('users', {})
                     self.complaints = mongo_data.get('complaints', [])
                     self.staff_members = mongo_data.get('staff_members', {})
-                    logger.info("✅ Ma'lumotlar MongoDB-dan yuklandi.")
+                    
+                    # Sanitizatsiya
+                    for m_nomi in self.mahallalar:
+                        if not isinstance(self.mahallalar[m_nomi].get('hodimlar'), dict):
+                            self.mahallalar[m_nomi]['hodimlar'] = {}
+                            
+                    logger.info("✅ Ma'lumotlar MongoDB-dan yuklandi va sanitizatsiya qilindi.")
                     return
             except Exception as e:
                 logger.error(f"MongoDB-dan yuklashda xato: {e}")
@@ -139,7 +145,13 @@ class DataStorage:
                     self.users = data.get('users', {})
                     self.complaints = data.get('complaints', [])
                     self.staff_members = data.get('staff_members', {})
-                logger.info("📂 Ma'lumotlar lokal fayldan yuklandi.")
+                
+                # Sanitizatsiya
+                for m_nomi in self.mahallalar:
+                    if not isinstance(self.mahallalar[m_nomi].get('hodimlar'), dict):
+                        self.mahallalar[m_nomi]['hodimlar'] = {}
+                
+                logger.info("📂 Ma'lumotlar lokal fayldan yuklandi va sanitizatsiya qilindi.")
                 
                 # Agar MongoDB-ga endigina ulanilgan bo'lsa, lokal ma'lumotlarni migratsiya qilish
                 if self.connected_to_mongo:
