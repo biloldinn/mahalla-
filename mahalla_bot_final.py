@@ -506,6 +506,9 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await query.edit_message_text(stats_text)
         return ADMIN_MAIN
+    
+    elif query.data == 'admin_main':
+        return await admin_main_menu(update, context)
 
 async def add_mahalla(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mahalla_nomi = update.message.text.strip()
@@ -863,6 +866,27 @@ async def mark_complaint_complete(update: Update, context: ContextTypes.DEFAULT_
     await query.edit_message_text("✅ Shikoyat bajarildi deb belgilandi.")
     return ConversationHandler.END
 
+async def delete_complaint(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    complaint_id = int(query.data.replace("delete_", ""))
+    
+    # Shikoyatni o'chirish
+    storage.complaints = [c for c in storage.complaints if c['id'] != complaint_id]
+    storage.save_data()
+    
+    await query.edit_message_text("🗑️ Shikoyat o'chirildi.")
+    return ConversationHandler.END
+
+async def staff_all_complaints(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Bu bo'lim ustida ish olib borilmoqda...", show_alert=True)
+
+async def staff_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Bu bo'lim ustida ish olib borilmoqda...", show_alert=True)
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Amal bekor qilindi.",
@@ -910,12 +934,18 @@ def main():
     
     # Hodim uchun handlerlar
     staff_handler = CallbackQueryHandler(staff_new_complaints, pattern='^new_complaints$')
+    staff_all_handler = CallbackQueryHandler(staff_all_complaints, pattern='^all_complaints$')
+    staff_stats_handler = CallbackQueryHandler(staff_stats, pattern='^my_stats$')
     complete_handler = CallbackQueryHandler(mark_complaint_complete, pattern='^complete_')
+    delete_complaint_handler = CallbackQueryHandler(delete_complaint, pattern='^delete_')
     
     # Handlerlarni qo'shish
     application.add_handler(main_conv_handler)
     application.add_handler(staff_handler)
+    application.add_handler(staff_all_handler)
+    application.add_handler(staff_stats_handler)
     application.add_handler(complete_handler)
+    application.add_handler(delete_complaint_handler)
     
     # Veb-serverni alohida thread'da ishga tushirish (Render uchun)
     threading.Thread(target=run_flask, daemon=True).start()
