@@ -931,67 +931,75 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
-    # Botni yaratish
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Birlashtirilgan main conversation handler
-    main_conv_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler('start', start),
-            CallbackQueryHandler(admin_panel, pattern='^(add_mahalla|add_staff|remove_staff|delete_mahalla|stats|admin_main)$')
-        ],
-        states={
-            MAHALLA_SELECT: [CallbackQueryHandler(select_mahalla, pattern='^mahalla_')],
-            PERSONAL_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_personal_info)],
-            COMPLAINT_TEXT: [
-                CallbackQueryHandler(select_staff, pattern='^staff_'),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_complaint_text)
-            ],
-            COMPLAINT_PHOTO: [
-                CallbackQueryHandler(handle_complaint_photo, pattern='^(add_photo|no_photo)$'),
-                MessageHandler(filters.PHOTO, handle_photo)
-            ],
-            ADMIN_MAIN: [CallbackQueryHandler(admin_panel, pattern='^(add_mahalla|add_staff|remove_staff|delete_mahalla|stats|admin_main)$')],
-            ADD_MAHALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_mahalla)],
-            SELECT_POSITION: [CallbackQueryHandler(select_position, pattern='^position_')],
-            ADD_STAFF: [
-                CallbackQueryHandler(select_mahalla_for_staff, pattern='^staffmahalla_'),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, add_staff_member)
-            ],
-            REMOVE_STAFF: [CallbackQueryHandler(remove_staff_member, pattern='^removestaff_')],
-            DELETE_MAHALLA: [CallbackQueryHandler(delete_mahalla_confirm, pattern='^delmahalla_')],
-            ADD_GROUP: [
-                CallbackQueryHandler(select_mahalla_for_group, pattern='^groupmahalla_'),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, add_group_id)
-            ]
-        },
-        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start)]
-    )
-    
-    # Hodim uchun handlerlar
-    staff_handler = CallbackQueryHandler(staff_new_complaints, pattern='^new_complaints$')
-    staff_all_handler = CallbackQueryHandler(staff_all_complaints, pattern='^all_complaints$')
-    staff_stats_handler = CallbackQueryHandler(staff_stats, pattern='^my_stats$')
-    complete_handler = CallbackQueryHandler(mark_complaint_complete, pattern='^complete_')
-    delete_complaint_handler = CallbackQueryHandler(delete_complaint, pattern='^delete_')
-    
-    # Handlerlarni qo'shish
-    application.add_handler(main_conv_handler)
-    application.add_handler(staff_handler)
-    application.add_handler(staff_all_handler)
-    application.add_handler(staff_stats_handler)
-    application.add_handler(complete_handler)
-    application.add_handler(delete_complaint_handler)
-    
-    # Xatolik handlerini qo'shish
-    application.add_error_handler(error_handler)
+    import time
     
     # Veb-serverni alohida thread'da ishga tushirish (Render uchun)
     threading.Thread(target=run_flask, daemon=True).start()
     
-    # Botni ishga tushirish
-    print("Bot ishga tushdi...")
-    application.run_polling()
+    while True:
+        try:
+            # Botni yaratish
+            application = Application.builder().token(BOT_TOKEN).build()
+            
+            # Birlashtirilgan main conversation handler
+            main_conv_handler = ConversationHandler(
+                entry_points=[
+                    CommandHandler('start', start),
+                    CallbackQueryHandler(admin_panel, pattern='^(add_mahalla|add_staff|remove_staff|delete_mahalla|stats|admin_main)$')
+                ],
+                states={
+                    MAHALLA_SELECT: [CallbackQueryHandler(select_mahalla, pattern='^mahalla_')],
+                    PERSONAL_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_personal_info)],
+                    COMPLAINT_TEXT: [
+                        CallbackQueryHandler(select_staff, pattern='^staff_'),
+                        MessageHandler(filters.TEXT & ~filters.COMMAND, get_complaint_text)
+                    ],
+                    COMPLAINT_PHOTO: [
+                        CallbackQueryHandler(handle_complaint_photo, pattern='^(add_photo|no_photo)$'),
+                        MessageHandler(filters.PHOTO, handle_photo)
+                    ],
+                    ADMIN_MAIN: [CallbackQueryHandler(admin_panel, pattern='^(add_mahalla|add_staff|remove_staff|delete_mahalla|stats|admin_main)$')],
+                    ADD_MAHALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_mahalla)],
+                    SELECT_POSITION: [CallbackQueryHandler(select_position, pattern='^position_')],
+                    ADD_STAFF: [
+                        CallbackQueryHandler(select_mahalla_for_staff, pattern='^staffmahalla_'),
+                        MessageHandler(filters.TEXT & ~filters.COMMAND, add_staff_member)
+                    ],
+                    REMOVE_STAFF: [CallbackQueryHandler(remove_staff_member, pattern='^removestaff_')],
+                    DELETE_MAHALLA: [CallbackQueryHandler(delete_mahalla_confirm, pattern='^delmahalla_')],
+                    ADD_GROUP: [
+                        CallbackQueryHandler(select_mahalla_for_group, pattern='^groupmahalla_'),
+                        MessageHandler(filters.TEXT & ~filters.COMMAND, add_group_id)
+                    ]
+                },
+                fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start)]
+            )
+            
+            # Hodim uchun handlerlar
+            staff_handler = CallbackQueryHandler(staff_new_complaints, pattern='^new_complaints$')
+            staff_all_handler = CallbackQueryHandler(staff_all_complaints, pattern='^all_complaints$')
+            staff_stats_handler = CallbackQueryHandler(staff_stats, pattern='^my_stats$')
+            complete_handler = CallbackQueryHandler(mark_complaint_complete, pattern='^complete_')
+            delete_complaint_handler = CallbackQueryHandler(delete_complaint, pattern='^delete_')
+            
+            # Handlerlarni qo'shish
+            application.add_handler(main_conv_handler)
+            application.add_handler(staff_handler)
+            application.add_handler(staff_all_handler)
+            application.add_handler(staff_stats_handler)
+            application.add_handler(complete_handler)
+            application.add_handler(delete_complaint_handler)
+            
+            # Xatolik handlerini qo'shish
+            application.add_error_handler(error_handler)
+            
+            # Botni ishga tushirish
+            logger.info("Bot polling ishga tushirildi...")
+            application.run_polling(drop_pending_updates=True)
+            
+        except Exception as e:
+            logger.error(f"Botda jiddiy xatolik (main loop): {e}. 10 soniyadan so'ng qayta uriniladi...")
+            time.sleep(10)
 
 if __name__ == '__main__':
     main()
