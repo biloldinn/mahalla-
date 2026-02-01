@@ -59,14 +59,26 @@ class DataStorage:
         self.staff_members = {}  # username: {ism: "", mahalla: "", lavozim: "", tel: "", user_id: None}
     
     def save_data(self):
-        data = {
-            'mahallalar': self.mahallalar,
-            'users': self.users,
-            'complaints': self.complaints,
-            'staff_members': self.staff_members
-        }
-        with open('data.json', 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        try:
+            data = {
+                'mahallalar': self.mahallalar,
+                'users': self.users,
+                'complaints': self.complaints,
+                'staff_members': self.staff_members
+            }
+            # Atomik saqlash: avval vaqtinchalik faylga yozish
+            temp_file = 'data.json.tmp'
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            # Keyin asosiy faylga almashtirish (bu crash paytida fayl buzilishini oldini oladi)
+            if os.path.exists(temp_file):
+                if os.name == 'nt': # Windows uchun
+                    if os.path.exists('data.json'):
+                        os.remove('data.json')
+                os.rename(temp_file, 'data.json')
+        except Exception as e:
+            logger.error(f"Ma'lumotlarni saqlashda xato: {e}")
     
     def load_data(self):
         if not os.path.exists('data.json'):
@@ -94,8 +106,13 @@ def health_check():
     return "Bot is running!", 200
 
 def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    try:
+        # Render uchun port 10000 standart, lekin PORT o'zgaruvchisidan ham olish kerak
+        port = int(os.environ.get("PORT", 10000))
+        logger.info(f"Flask serveri {port}-portda ishlamoqda...")
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    except Exception as e:
+        logger.error(f"Flask serverini ishga tushirishda xato: {e}")
 
 # Xatoliklarni ushlab qolish
 async def error_handler(update: Optional[object], context: ContextTypes.DEFAULT_TYPE) -> None:
