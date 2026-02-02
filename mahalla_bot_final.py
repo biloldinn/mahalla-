@@ -62,6 +62,7 @@ class DataStorage:
         self.users = {}
         self.complaints = []
         self.staff_members = {}
+        self._lock = threading.Lock() # Thread-safety lock
         
         # MongoDB sozlamalari
         self.mongo_uri = os.environ.get("MONGO_URI", "mongodb+srv://msen78041_db_user:JsTixohKsShps2ue@mahahlla.an5naee.mongodb.net/?appName=mahahlla")
@@ -80,37 +81,37 @@ class DataStorage:
                 logger.error(f"❌ MongoDB-ga ulanishda xato: {e}. Lokal fayldan foydalaniladi.")
     
     def save_data(self):
-        data = {
-            'mahallalar': self.mahallalar,
-            'users': self.users,
-            'complaints': self.complaints,
-            'staff_members': self.staff_members
-        }
-        
-        # 1. MongoDB-ga saqlash
-        if self.connected_to_mongo:
+        with self._lock: # Ensure only one thread writes at a time
+            data = {
+                'mahallalar': self.mahallalar,
+                'users': self.users,
+                'complaints': self.complaints,
+                'staff_members': self.staff_members
+            }
+            
+            # 1. MongoDB-ga saqlash
+            if self.connected_to_mongo:
+                try:
+                    for key, value in data.items():
+                        self.db['bot_data'].update_one(
+                            {'_id': key},
+                            {'$set': {'data': value}},
+                            upsert=True
+                        )
+                except Exception as e:
+                    logger.error(f"MongoDB-ga saqlashda xato: {e}")
+            
+            # 2. Lokal JSON-ga saqlash (zaxira uchun)
             try:
-                for key, value in data.items():
-                    self.db['bot_data'].update_one(
-                        {'_id': key},
-                        {'$set': {'data': value}},
-                        upsert=True
-                    )
-                # logger.debug("Ma'lumotlar MongoDB-ga saqlandi.")
+                temp_file = 'data.json.tmp'
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                if os.path.exists(temp_file):
+                    if os.name == 'nt' and os.path.exists('data.json'):
+                        os.remove('data.json')
+                    os.rename(temp_file, 'data.json')
             except Exception as e:
-                logger.error(f"MongoDB-ga saqlashda xato: {e}")
-        
-        # 2. Lokal JSON-ga saqlash (zaxira uchun)
-        try:
-            temp_file = 'data.json.tmp'
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            if os.path.exists(temp_file):
-                if os.name == 'nt' and os.path.exists('data.json'):
-                    os.remove('data.json')
-                os.rename(temp_file, 'data.json')
-        except Exception as e:
-            logger.error(f"Lokal saqlashda xato: {e}")
+                logger.error(f"Lokal saqlashda xato: {e}")
 
     def load_data(self):
         # 1. MongoDB-dan yuklash
@@ -240,13 +241,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for mahalla in storage.mahallalar.keys():
             keyboard.append([InlineKeyboardButton(mahalla, callback_data=f"mahalla_{mahalla}")])
         
-        # Veb-ilova tugmasini qo'shish
-        keyboard.append([InlineKeyboardButton("🌐 Veb-ilova orqali yuborish", url="https://xavfsizhudud.vercel.app")])
-        
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             "👋 Mahalla shikoyat botiga xush kelibsiz!\n"
-            "Iltimos, mahallangizni tanlang yoki veb-ilovadan foydalaning:",
+            "Iltimos, o'zingizning mahallangizni tanlang:",
             reply_markup=reply_markup
         )
         return MAHALLA_SELECT
