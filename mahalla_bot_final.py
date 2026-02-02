@@ -71,7 +71,7 @@ class DataStorage:
         
         if self.mongo_uri and pymongo:
             try:
-                self.client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
+                self.client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000, tlsAllowInvalidCertificates=True)
                 # Ulanishni tekshirish
                 self.client.server_info()
                 self.db = self.client['mahalla_bot_db']
