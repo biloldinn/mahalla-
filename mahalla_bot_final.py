@@ -171,14 +171,30 @@ app = Flask(__name__)
 def health_check():
     return "Bot is running!", 200
 
+@app.route('/ping')
+def ping():
+    return "Pong!", 200
+
 def run_flask():
     try:
-        # Render uchun port 10000 standart, lekin PORT o'zgaruvchisidan ham olish kerak
+        # Render uchun port 10000 standart
         port = int(os.environ.get("PORT", 10000))
         logger.info(f"Flask serveri {port}-portda ishlamoqda...")
         app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
     except Exception as e:
         logger.error(f"Flask serverini ishga tushirishda xato: {e}")
+
+def keep_alive():
+    import time
+    import requests
+    while True:
+        try:
+            time.sleep(14 * 60)  # 14 daqiqa kutish
+            port = int(os.environ.get("PORT", 10000))
+            requests.get(f"http://127.0.0.1:{port}/ping")
+            logger.info("✅ Self-ping yuborildi (Render uyg'oq turishi uchun)")
+        except Exception as e:
+            logger.error(f"⚠️ Self-ping xatosi: {e}")
 
 # Xatoliklarni ushlab qolish
 async def error_handler(update: Optional[object], context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1008,6 +1024,9 @@ def main():
     
     # Veb-serverni alohida thread'da ishga tushirish (Render uchun)
     threading.Thread(target=run_flask, daemon=True).start()
+    
+    # Keep-alive thread (o'z-o'zini ping qilish)
+    threading.Thread(target=keep_alive, daemon=True).start()
     
     while True:
         try:
